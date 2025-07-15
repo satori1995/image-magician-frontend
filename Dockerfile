@@ -11,8 +11,11 @@ COPY . .
 RUN rm -rf node_modules package-lock.json
 RUN npm install
 
+# 构建应用
+RUN npm run build
+
 # 暴露端口
 EXPOSE 80
 
-# 启动开发服务器
-CMD ["npm", "run", "dev"]
+# 启动预览服务器（生产模式）
+CMD ["npm", "run", "preview"]
