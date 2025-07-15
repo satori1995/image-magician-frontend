@@ -1,9 +1,9 @@
 // API 端点
 export const API_ENDPOINTS = {
-  REMOVE_BACKGROUND: '/api/remove_bg',
-  BLUR_BACKGROUND: '/api/blur_bg',
-  SHOW_BACKGROUND: '/api/show_bg',
-  REPLACE_BACKGROUND: '/api/replace_bg',
+  REMOVE_BACKGROUND: '/remove_bg',
+  BLUR_BACKGROUND: '/blur_bg',
+  SHOW_BACKGROUND: '/show_bg',
+  REPLACE_BACKGROUND: '/replace_bg',
 }
 
 // 支持的文件类型
