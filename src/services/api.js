@@ -105,6 +105,60 @@ export const checkServerStatus = async (baseUrl) => {
   }
 }
 
+/**
+ * 获取背景替换图片
+ * @param {string} prompt - 提示词
+ * @param {string|number} cursor - 游标，用于分页
+ * @returns {Promise<Object>} 返回图片列表和新的游标
+ */
+export const getBackgroundImages = async (prompt = '', cursor = null) => {
+  const requestData = { prompt }
+  
+  if (cursor !== null) {
+    requestData.cursor = cursor
+  }
+
+  const response = await apiClient.post('/api/show_bg', requestData, {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+
+  // 检查响应状态
+  if (response.data.code !== 200) {
+    throw new Error(`API返回错误: ${response.data.code}`)
+  }
+
+  return response.data.data
+}
+
+/**
+ * 执行背景替换
+ * @param {File|Blob} imageFile - 原图片文件
+ * @param {Object} backgroundImage - 背景图片信息
+ * @returns {Promise<Blob>} 返回替换后的图片
+ */
+export const replaceBackground = async (imageFile, backgroundImage) => {
+  const formData = new FormData()
+  
+  // 添加原始图片文件
+  formData.append('image', imageFile)
+  
+  // 添加背景图片信息的三个单独字段
+  formData.append('id', backgroundImage.id)
+  formData.append('width', backgroundImage.width)
+  formData.append('height', backgroundImage.height)
+
+  const response = await apiClient.post('/api/replace_bg', formData, {
+    responseType: 'blob',
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+
+  return response.data
+}
+
 export default apiClient
 
 

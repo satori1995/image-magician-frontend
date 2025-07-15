@@ -25,24 +25,29 @@
           'processing-glow': isProcessing
         }"
         @contextmenu="handleContextMenu"
+        tabindex="-1"
       >
         <!-- 原始图像 -->
         <img
           v-if="!processedImage"
-          :src="originalImage"
+          :src="originalImage?.url || originalImage"
           alt="原始图像"
           class="original-image"
           :class="{ 'processing-dim': isProcessing }"
           :style="imageStyle"
+          tabindex="-1"
+          draggable="false"
         />
 
         <!-- 处理后的图像 -->
         <img
           v-if="processedImage"
-          :src="processedImage"
+          :src="processedImage?.url || processedImage"
           alt="处理后的图像"
           class="processed-image"
           :style="imageStyle"
+          tabindex="-1"
+          draggable="false"
           @load="console.log('Processed image loaded successfully')"
           @error="console.error('Processed image failed to load')"
         />
@@ -72,7 +77,7 @@
       type="file"
       accept="image/*"
       @change="handleFileChange"
-      style="display: none;"
+      style="display: none; outline: none;"
     />
   </div>
 </template>
@@ -223,6 +228,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 0; /* 重要：允许flex子元素缩小 */
+  overflow: hidden;
 }
 
 .image-display {
@@ -231,6 +238,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 0; /* 重要：允许flex子元素缩小 */
 }
 
 .upload-area {
@@ -280,6 +288,10 @@ export default {
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   background: white;
+  outline: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 透明背景棋盘格效果 */
@@ -296,10 +308,40 @@ export default {
 .original-image,
 .processed-image {
   display: block;
-  max-width: 800px;
-  max-height: 600px;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   transition: all 0.2s ease;
+  outline: none !important;
+  border: none !important;
+  text-decoration: none !important;
+  caret-color: transparent !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* 移除所有可能的伪元素 */
+.original-image::before,
+.original-image::after,
+.processed-image::before,
+.processed-image::after,
+.image-container::before,
+.image-container::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* 移除focus状态的所有样式 */
+.original-image:focus,
+.processed-image:focus,
+.image-container:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* 处理时图像变暗效果 */

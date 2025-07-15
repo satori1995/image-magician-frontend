@@ -86,6 +86,21 @@
               </div>
             </div>
           </div>
+
+          <!-- 背景替换按钮 -->
+          <button
+            class="tool-btn"
+            :class="{ 
+              active: isProcessing && currentOperation === 'replace',
+              completed: operationCompleted && currentOperation === 'replace'
+            }"
+            :disabled="!hasImage || isProcessing || operationCompleted"
+            @click="showBackgroundReplaceModal = true"
+          >
+            <span class="tool-icon">{{ (operationCompleted && currentOperation === 'replace') ? '✅' : '🎨' }}</span>
+            <span>{{ (operationCompleted && currentOperation === 'replace') ? '背景已替换' : '背景替换' }}</span>
+            <span v-if="isProcessing && currentOperation === 'replace'" class="loading-spinner">⟳</span>
+          </button>
         </div>
 
 <!--        <div class="panel-footer">-->
@@ -95,6 +110,13 @@
 <!--        </div>-->
       </div>
     </div>
+
+    <!-- 背景替换模态框 -->
+    <BackgroundReplaceModal
+      v-if="showBackgroundReplaceModal"
+      @close="showBackgroundReplaceModal = false"
+      @confirm="handleBackgroundReplace"
+    />
 
     <!-- 错误提示 -->
     <div v-if="error" class="error-toast">
@@ -110,18 +132,24 @@
 import { ref } from 'vue'
 import ImageDisplay from '@/components/ImageDisplay.vue'
 import ControlBar from '@/components/ControlBar.vue'
+import BackgroundReplaceModal from '@/components/BackgroundReplaceModal.vue'
 import { useImageEditor } from '@/composables/useImageEditor.js'
 import { useAnimation } from '@/composables/useAnimation.js'
+import { performBackgroundReplace } from '@/services/backgroundReplace.js'
 
 export default {
   name: 'ImageEditor',
   components: {
     ImageDisplay,
-    ControlBar
+    ControlBar,
+    BackgroundReplaceModal
   },
   setup() {
     // 当前操作类型
     const currentOperation = ref(null)
+    
+    // 背景替换模态框状态
+    const showBackgroundReplaceModal = ref(false)
     
     // 使用组合式函数
     const {
@@ -224,6 +252,54 @@ export default {
       currentOperation.value = null
     }
 
+    /**
+     * 处理背景替换
+     */
+    const handleBackgroundReplace = async (result) => {
+      console.log('背景替换结果:', result)
+      
+      if (result.selectedImage && originalImage.value) {
+        try {
+          console.log('开始背景替换...')
+          currentOperation.value = 'replace'
+          
+          // 立即关闭弹窗
+          showBackgroundReplaceModal.value = false
+          
+          // 设置处理状态，触发图像变暗和星星特效
+          isProcessing.value = true
+          error.value = null
+          
+          // 使用背景替换服务
+          const resultBlob = await performBackgroundReplace(
+            originalImage.value.file,
+            result.selectedImage
+          )
+          
+          // 创建新的图片对象
+          const imageUrl = URL.createObjectURL(resultBlob)
+          processedImage.value = {
+            url: imageUrl,
+            blob: resultBlob
+          }
+          
+          // 标记操作完成
+          operationCompleted.value = true
+          console.log('背景替换完成!')
+          
+        } catch (err) {
+          console.error('背景替换失败:', err)
+          error.value = err.message || '背景替换失败'
+          currentOperation.value = null
+        } finally {
+          isProcessing.value = false
+        }
+      } else {
+        // 如果没有选择图片，直接关闭弹窗
+        showBackgroundReplaceModal.value = false
+      }
+    }
+
     return {
       // 状态
       originalImage,
@@ -236,6 +312,7 @@ export default {
       currentOperation,
       isFlashing,
       isRevealing,
+      showBackgroundReplaceModal,
 
       // 计算属性
       hasImage,
@@ -249,6 +326,7 @@ export default {
       handleBlurBackground,
       handleClear,
       handleReupload,
+      handleBackgroundReplace,
       zoomIn,
       zoomOut,
       downloadImage,
@@ -276,6 +354,7 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0; /* 重要：允许flex子元素缩小 */
 }
 
 /* 简化的工具面板 */

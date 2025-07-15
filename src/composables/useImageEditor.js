@@ -20,7 +20,11 @@ export function useImageEditor() {
   const hasProcessedImage = computed(() => !!processedImage.value)
   const canZoomIn = computed(() => zoom.value < ZOOM_LIMITS.MAX)
   const canZoomOut = computed(() => zoom.value > ZOOM_LIMITS.MIN)
-  const displayImage = computed(() => processedImage.value || originalImage.value)
+  const displayImage = computed(() => {
+    const processed = processedImage.value
+    const original = originalImage.value
+    return processed || original
+  })
 
   /**
    * 上传图像文件
@@ -44,7 +48,10 @@ export function useImageEditor() {
 
       // 更新状态
       currentFile.value = file
-      originalImage.value = dataURL
+      originalImage.value = {
+        url: dataURL,
+        file: file
+      }
       processedImage.value = null
       zoom.value = DEFAULT_SETTINGS.DEFAULT_ZOOM
       operationCompleted.value = false // 重置操作状态
@@ -77,7 +84,10 @@ export function useImageEditor() {
         resultURL: resultURL
       })
       
-      processedImage.value = resultURL
+      processedImage.value = {
+        url: resultURL,
+        blob: resultBlob
+      }
       operationCompleted.value = true // 标记操作已完成
       console.log('processedImage.value set to:', processedImage.value)
 
@@ -114,7 +124,10 @@ export function useImageEditor() {
         radius: blurRadius.value
       })
       
-      processedImage.value = resultURL
+      processedImage.value = {
+        url: resultURL,
+        blob: resultBlob
+      }
       operationCompleted.value = true // 标记操作已完成
       console.log('processedImage.value set to:', processedImage.value)
 
@@ -154,9 +167,8 @@ export function useImageEditor() {
 
     try {
       if (processedImage.value) {
-        // 下载处理后的图像（Blob URL）
-        const response = await fetch(processedImage.value)
-        const blob = await response.blob()
+        // 下载处理后的图像（使用存储的 blob 或获取URL）
+        const blob = processedImage.value.blob || await fetch(processedImage.value.url).then(r => r.blob())
         downloadBlob(blob, 'processed_image.png')
       } else {
         // 下载原始图像
