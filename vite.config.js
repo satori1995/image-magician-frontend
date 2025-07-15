@@ -15,7 +15,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://host.docker.internal:10001',
+        target: 'http://10.3.0.5:10001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
@@ -26,7 +26,7 @@ export default defineConfig({
     port: 80,
     proxy: {
       '/api': {
-        target: 'http://host.docker.internal:10001',
+        target: 'http://10.3.0.5:10001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
