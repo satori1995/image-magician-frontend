@@ -20,6 +20,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     },
+    allowedHosts: ['www.image-magician.com'],
   },
   preview: {
     host: '0.0.0.0',
