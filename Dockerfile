@@ -1,20 +1,15 @@
-# 使用 Node.js 16 作为基础镜像
-FROM node:16-alpine
+# 使用 Node.js 20 最新版本
+FROM node:20-alpine
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制依赖文件
-COPY package*.json ./
-
-# 安装依赖
-RUN npm install
-
-# 复制源代码
+# 复制依赖文件和源代码
 COPY . .
 
-# 构建应用（跳过构建，直接使用开发模式）
-# RUN npm run build
+# 清理并安装依赖
+RUN rm -rf node_modules package-lock.json
+RUN npm install
 
 # 暴露端口
 EXPOSE 80
