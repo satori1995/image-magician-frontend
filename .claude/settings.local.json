@@ -4,7 +4,8 @@
       "Bash(curl:*)",
       "Bash(lsof:*)",
       "Bash(npm run build:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(docker build:*)"
     ],
     "deny": []
   }
