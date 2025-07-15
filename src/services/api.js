@@ -1,19 +1,8 @@
 import axios from 'axios'
 
-// 获取API基础URL
-const getApiBaseUrl = () => {
-  // 优先使用环境变量
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL
-  }
-
-  // 开发环境使用代理
-  return '/api'
-}
-
 // 创建 axios 实例
 const apiClient = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: '/api',
   timeout: 30000, // 30秒超时
   headers: {
     'Content-Type': 'multipart/form-data'

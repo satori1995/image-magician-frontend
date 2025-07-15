@@ -23,8 +23,8 @@ export default defineConfig({
   },
   preview: {
     host: '0.0.0.0',
-    port: 80,
-    open: false,
+    port: 3000,
+    open: true,
     proxy: {
       '/api': {
         target: 'http://localhost:10001',
