@@ -1,24 +1,105 @@
 <template>
-  <div id="app">
-    <ImageEditor />
+  <div id="app" contenteditable="false">
+    <Navbar @tab-change="handleTabChange" />
+    <div class="app-body">
+      <Sidebar @function-change="handleFunctionChange" />
+      <main class="main-content">
+        <WallpaperSearch v-if="currentFunction === 'wallpaper-search'" />
+        <div v-else class="content-area">
+          <!-- Other functions will be implemented here -->
+        </div>
+      </main>
+    </div>
   </div>
 </template>
 
 <script>
-// 改为相对路径
-import ImageEditor from './views/ImageEditor.vue'
+import Navbar from './components/Navbar.vue'
+import Sidebar from './components/Sidebar.vue'
+import WallpaperSearch from './components/WallpaperSearch.vue'
 
 export default {
   name: 'App',
   components: {
-    ImageEditor
+    Navbar,
+    Sidebar,
+    WallpaperSearch
+  },
+  data() {
+    return {
+      currentTab: 'image',
+      currentFunction: 'wallpaper-search'
+    }
+  },
+  methods: {
+    handleTabChange(tab) {
+      this.currentTab = tab
+    },
+    handleFunctionChange(functionName) {
+      this.currentFunction = functionName
+    }
   }
 }
 </script>
 
 <style>
 #app {
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.app-body {
+  flex: 1;
+  position: relative;
+  min-height: calc(100vh - 80px);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.main-content {
+  position: absolute;
+  left: 280px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f5f5f5;
+  overflow-y: auto;
+  height: calc(100vh - 80px);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.content-area {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 100%;
+}
+
+h1 {
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+p {
+  color: #7f8c8d;
+  font-size: 16px;
+  line-height: 1.6;
 }
 </style>
