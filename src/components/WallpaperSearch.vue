@@ -88,37 +88,62 @@
     <!-- 图片详情弹窗 -->
     <div v-if="selectedImage" class="modal-overlay" @click="closeImageModal">
       <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>壁纸详情</h3>
-          <button class="close-button" @click="closeImageModal">×</button>
-        </div>
+        <button class="close-button-floating" @click="closeImageModal">×</button>
         
         <div class="modal-body">
-          <img 
-            :src="selectedImage.hd_url" 
-            :alt="selectedImage.prompt"
-            class="full-image"
-            @contextmenu.prevent
-          />
-          
-          <div class="image-details">
-            <div class="detail-item size-item">
-              <strong>尺寸</strong>
-              <div class="size-content">{{ selectedImage.width }} × {{ selectedImage.height }}</div>
+          <div class="modal-content-wrapper">
+            <!-- 左侧信息区域 -->
+            <div class="image-info-section">
+              <div class="image-details">
+                <div class="detail-item size-item">
+                  <strong>尺寸</strong>
+                  <div class="size-content">{{ selectedImage.width }} × {{ selectedImage.height }}</div>
+                </div>
+                <div class="detail-item prompt-item">
+                  <strong>提示词</strong>
+                  <div class="prompt-content">{{ selectedImage.prompt || '无' }}</div>
+                </div>
+              </div>
+              
             </div>
-            <div class="detail-item prompt-item">
-              <strong>提示词</strong>
-              <div class="prompt-content">{{ selectedImage.prompt || '无' }}</div>
+            
+            <!-- 右侧图片区域 -->
+            <div class="image-display-section">
+              <div class="image-wrapper" @mouseenter="showDownloadButton = true" @mouseleave="showDownloadButton = false">
+                <!-- 图片占位容器，使用原始图片尺寸 -->
+                <div 
+                  class="image-placeholder"
+                  :class="{ 'loading': !imageLoaded }"
+                  :style="{ 
+                    width: getImageDisplayWidth() + 'px', 
+                    height: getImageDisplayHeight() + 'px'
+                  }"
+                >
+                  <img 
+                    :src="selectedImage.hd_url" 
+                    :alt="selectedImage.prompt"
+                    class="full-image"
+                    @contextmenu.prevent
+                    @load="onImageLoad"
+                    @error="onImageError"
+                    :style="{ 
+                      opacity: imageLoaded ? 1 : 0,
+                      transition: 'opacity 0.3s ease'
+                    }"
+                    ref="modalImage"
+                  />
+                </div>
+                
+                <!-- 悬浮下载按钮 -->
+                <div 
+                  v-if="showDownloadButton && imageLoaded" 
+                  class="download-btn"
+                  @click="downloadImage(selectedImage)"
+                >
+                  <span class="download-icon">⬇</span>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div class="modal-actions">
-            <button 
-              class="download-button"
-              @click="downloadImage(selectedImage)"
-            >
-              下载原图
-            </button>
           </div>
         </div>
       </div>
@@ -141,7 +166,9 @@ export default {
       hoveredImageId: null,
       selectedImage: null,
       lastSearchPrompt: '',
-      scrollContainer: null
+      scrollContainer: null,
+      showDownloadButton: false,
+      imageLoaded: false
     }
   },
   async mounted() {
@@ -151,6 +178,7 @@ export default {
       mainContent.addEventListener('scroll', this.handleScroll)
       this.scrollContainer = mainContent
     }
+    
     
     // 页面加载时自动搜索
     await this.autoSearch()
@@ -230,19 +258,98 @@ export default {
     
     openImageModal(image) {
       this.selectedImage = image
+      this.imageLoaded = false
+      this.showDownloadButton = false
     },
     
     closeImageModal() {
       this.selectedImage = null
+      this.showDownloadButton = false
+      this.imageLoaded = false
     },
     
     downloadImage(image) {
-      const link = document.createElement('a')
-      link.href = image.hd_url
-      link.download = `wallpaper_${image.image_id}.jpg`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      try {
+        // 直接使用已经加载的图片元素
+        const imgElement = this.$refs.modalImage
+        if (imgElement && imgElement.complete) {
+          // 创建 canvas 来获取图片数据
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          
+          canvas.width = imgElement.naturalWidth
+          canvas.height = imgElement.naturalHeight
+          
+          // 将图片绘制到 canvas
+          ctx.drawImage(imgElement, 0, 0)
+          
+          // 转换为 blob 并下载
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const url = window.URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.href = url
+              link.download = `wallpaper_${image.image_id}.jpg`
+              link.style.display = 'none'
+              document.body.appendChild(link)
+              link.click()
+              
+              // 清理
+              document.body.removeChild(link)
+              window.URL.revokeObjectURL(url)
+              console.log('图片下载成功')
+            }
+          }, 'image/jpeg', 0.95)
+        } else {
+          console.error('图片未完全加载，无法下载')
+        }
+      } catch (error) {
+        console.error('下载失败:', error)
+      }
+    },
+    
+    onImageLoad() {
+      console.log('图片加载完成')
+      this.imageLoaded = true
+    },
+    
+    onImageError() {
+      this.imageLoaded = false
+      console.error('图片加载失败')
+    },
+    
+    getImageDisplayWidth() {
+      if (!this.selectedImage) return 400
+      const maxWidth = 700
+      const maxHeight = 700
+      const { width, height } = this.selectedImage
+      
+      if (width <= maxWidth && height <= maxHeight) {
+        return width
+      }
+      
+      const widthRatio = maxWidth / width
+      const heightRatio = maxHeight / height
+      const ratio = Math.min(widthRatio, heightRatio)
+      
+      return Math.round(width * ratio)
+    },
+    
+    getImageDisplayHeight() {
+      if (!this.selectedImage) return 300
+      const maxWidth = 700
+      const maxHeight = 700
+      const { width, height } = this.selectedImage
+      
+      if (width <= maxWidth && height <= maxHeight) {
+        return height
+      }
+      
+      const widthRatio = maxWidth / width
+      const heightRatio = maxHeight / height
+      const ratio = Math.min(widthRatio, heightRatio)
+      
+      return Math.round(height * ratio)
     },
     
   }
@@ -550,54 +657,46 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: 10px;
 }
 
 .modal-content {
   background: white;
   border-radius: 12px;
-  width: 800px;
-  max-width: 90vw;
-  max-height: 90vh;
+  width: 1400px;
+  max-width: 95vw;
+  max-height: 95vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 30px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 20px;
-  color: #333;
-}
-
-.close-button {
-  background: none;
+.close-button-floating {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(0, 0, 0, 0.6);
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6c757d;
+  color: white;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   transition: all 0.2s ease;
+  z-index: 10;
+  backdrop-filter: blur(10px);
 }
 
-.close-button:hover {
-  background: #f8f9fa;
-  color: #333;
+.close-button-floating:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
 }
 
 .modal-body {
@@ -607,21 +706,75 @@ export default {
   flex: 1;
 }
 
-.full-image {
-  width: 100%;
-  max-width: 800px;
-  height: auto;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
+.modal-content-wrapper {
+  display: flex;
+  gap: 30px;
+  align-items: stretch;
+  height: 100%;
 }
+
+.image-info-section {
+  flex: 0 0 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.image-display-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.image-placeholder {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+}
+
+.image-placeholder.loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+
+.full-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
 
 .image-details {
   margin-bottom: 30px;
   min-width: 0;
-  flex-shrink: 1;
+  flex: 1;
 }
 
 .detail-item {
@@ -660,7 +813,7 @@ export default {
   word-wrap: break-word;
   word-break: break-word;
   white-space: pre-wrap;
-  max-height: 150px;
+  max-height: 300px;
   overflow-y: auto;
   min-height: 0;
 }
@@ -678,24 +831,101 @@ export default {
   margin-right: 10px;
 }
 
-.modal-actions {
-  text-align: center;
-}
-
-.download-button {
-  padding: 12px 30px;
-  background: linear-gradient(135deg, #28a745, #20c997);
-  color: white;
-  border: none;
-  border-radius: 25px;
-  font-size: 16px;
-  font-weight: 600;
+/* 悬浮下载按钮样式 */
+.download-btn {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  opacity: 0;
   transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
 }
 
-.download-button:hover {
+.download-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0);
+  animation: pulse 2s infinite;
+}
+
+.image-wrapper:hover .download-btn {
+  opacity: 1;
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+}
+
+.download-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.download-btn:hover::before {
+  animation-play-state: paused;
+}
+
+.download-icon {
+  font-size: 22px;
+  color: white;
+  font-weight: bold;
+  z-index: 1;
+  position: relative;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* 响应式布局 */
+@media (max-width: 1024px) {
+  .modal-content {
+    width: 95vw;
+  }
+  
+  .modal-content-wrapper {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .image-info-section {
+    flex: none;
+    order: 2;
+  }
+  
+  .image-display-section {
+    flex: none;
+    order: 1;
+  }
+  
+  .full-image {
+    max-height: 500px;
+  }
 }
 </style>
