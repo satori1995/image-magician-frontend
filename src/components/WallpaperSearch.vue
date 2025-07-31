@@ -35,7 +35,7 @@
         >
           <!-- 图片 -->
           <img 
-            :src="image.thumb_url" 
+            :src="getProxiedImageUrl(image.thumb_url)" 
             :alt="image.prompt"
             class="thumbnail"
             @contextmenu.prevent
@@ -101,7 +101,19 @@
                 </div>
                 <div class="detail-item prompt-item">
                   <strong>提示词</strong>
-                  <div class="prompt-content">{{ selectedImage.prompt || '无' }}</div>
+                  <div class="prompt-content-wrapper">
+                    <div class="prompt-content">{{ selectedImage.prompt || '无' }}</div>
+                    <button 
+                      v-if="selectedImage.prompt" 
+                      class="copy-button"
+                      @click="copyPrompt"
+                      :title="copyButtonTitle"
+                      :class="{ copied: isCopied }"
+                    >
+                      <span v-if="!isCopied" class="copy-icon">📋</span>
+                      <span v-else class="copied-icon">✅</span>
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -120,7 +132,7 @@
                   }"
                 >
                   <img 
-                    :src="selectedImage.hd_url" 
+                    :src="getProxiedImageUrl(selectedImage.hd_url)" 
                     :alt="selectedImage.prompt"
                     class="full-image"
                     @contextmenu.prevent
@@ -157,7 +169,7 @@
 </template>
 
 <script>
-import { searchImages } from '../services/api.js'
+import { searchImages, getProxiedImage } from '../services/api.js'
 
 export default {
   name: 'WallpaperSearch',
@@ -175,7 +187,14 @@ export default {
       showDownloadButton: false,
       imageLoaded: false,
       isDownloading: false,
-      downloadProgress: 0
+      downloadProgress: 0,
+      imageProxyCache: new Map(),
+      imageLoadingStatus: new Map(), // 记录图片加载状态：'loading', 'loaded', 'error'
+      imageRequestQueue: [], // 图片请求队列
+      activeRequests: 0, // 当前活跃请求数
+      maxConcurrentRequests: 3, // 最大并发请求数
+      isCopied: false, // 拷贝状态
+      copyButtonTitle: '拷贝提示词' // 拷贝按钮提示文本
     }
   },
   async mounted() {
@@ -275,6 +294,8 @@ export default {
       this.imageLoaded = false
       this.isDownloading = false
       this.downloadProgress = 0
+      this.isCopied = false
+      this.copyButtonTitle = '拷贝提示词'
     },
     
     async downloadImage(image) {
@@ -285,65 +306,12 @@ export default {
         this.downloadProgress = 0
         console.log('开始下载图片:', image.hd_url)
         
-        // 使用 fetch 获取图片数据，并追踪下载进度
-        const response = await fetch(image.hd_url)
+        // 使用代理接口获取图片数据，并追踪下载进度
+        const blob = await getProxiedImage(image.hd_url)
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        
-        // 获取文件总大小
-        const contentLength = response.headers.get('content-length')
-        const total = contentLength ? parseInt(contentLength, 10) : 0
-        console.log('文件大小:', total, 'bytes')
-        
-        // 使用 ReadableStream 来追踪下载进度
-        const reader = response.body.getReader()
-        const chunks = []
-        let receivedLength = 0
-        
-        // 逐块读取数据并更新进度
-        while (true) {
-          const { done, value } = await reader.read()
-          
-          if (done) break
-          
-          chunks.push(value)
-          receivedLength += value.length
-          
-          // 更新真实下载进度
-          if (total > 0) {
-            this.downloadProgress = (receivedLength / total) * 100
-          } else {
-            // 如果无法获取总大小，根据已接收数据估算进度
-            // 假设大部分图片在 1-5MB 之间
-            const estimatedTotal = Math.max(receivedLength * 2, 2 * 1024 * 1024) // 至少假设2MB
-            this.downloadProgress = Math.min(95, (receivedLength / estimatedTotal) * 100)
-          }
-          
-          console.log(`下载进度: ${this.downloadProgress.toFixed(1)}% (${receivedLength}/${total || '未知'} bytes)`)
-        }
-        
-        // 确保进度显示完成
+        // 模拟下载进度（因为代理接口返回的是完整blob）
         this.downloadProgress = 100
-        console.log('图片数据下载完成，总大小:', receivedLength, 'bytes')
-        
-        // 创建 blob - 根据文件头判断图片类型
-        let mimeType = 'image/jpeg' // 默认
-        if (chunks.length > 0 && chunks[0].length > 4) {
-          const firstBytes = chunks[0]
-          // 检查文件头判断图片格式
-          if (firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47) {
-            mimeType = 'image/png'
-          } else if (firstBytes[0] === 0xFF && firstBytes[1] === 0xD8) {
-            mimeType = 'image/jpeg'
-          } else if (firstBytes[0] === 0x47 && firstBytes[1] === 0x49 && firstBytes[2] === 0x46) {
-            mimeType = 'image/gif'
-          }
-        }
-        
-        const blob = new Blob(chunks, { type: mimeType })
-        console.log('Blob 创建成功，大小:', blob.size, 'bytes, 类型:', mimeType)
+        console.log('Blob 创建成功，大小:', blob.size, 'bytes, 类型:', blob.type)
         
         // 创建下载链接
         const url = URL.createObjectURL(blob)
@@ -351,6 +319,7 @@ export default {
         link.href = url
         
         // 根据文件类型设置文件扩展名
+        const mimeType = blob.type || 'image/jpeg'
         const extension = mimeType === 'image/png' ? 'png' : 
                          mimeType === 'image/gif' ? 'gif' : 'jpg'
         link.download = `wallpaper_${image.image_id}.${extension}`
@@ -431,6 +400,127 @@ export default {
       const ratio = Math.min(widthRatio, heightRatio)
       
       return Math.round(height * ratio)
+    },
+    
+    getProxiedImageUrl(originalUrl) {
+      if (!originalUrl) return ''
+      
+      // 检查缓存
+      if (this.imageProxyCache.has(originalUrl)) {
+        return this.imageProxyCache.get(originalUrl)
+      }
+      
+      // 检查是否正在加载
+      if (!this.imageLoadingStatus.has(originalUrl)) {
+        this.imageLoadingStatus.set(originalUrl, 'loading')
+        // 添加到请求队列，不阻塞渲染
+        this.queueImageRequest(originalUrl)
+      }
+      
+      // 立即返回整体渐变加载占位符
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIj4KICAgIDxhbmltYXRlIGF0dHJpYnV0ZU5hbWU9ImZpbGwiIGR1cj0iMS41cyIgdmFsdWVzPSIjZjBmMGYwOyNlMGUwZTA7I2YwZjBmMCIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICA8L3JlY3Q+Cjwvc3ZnPg=='
+    },
+    
+    queueImageRequest(originalUrl) {
+      // 添加到队列
+      this.imageRequestQueue.push(originalUrl)
+      // 尝试处理队列
+      this.processImageQueue()
+    },
+
+    async processImageQueue() {
+      // 如果已达到最大并发数，或队列为空，则返回
+      if (this.activeRequests >= this.maxConcurrentRequests || this.imageRequestQueue.length === 0) {
+        return
+      }
+
+      // 从队列中取出一个请求
+      const originalUrl = this.imageRequestQueue.shift()
+      this.activeRequests++
+
+      console.log(`开始加载图片 (${this.activeRequests}/${this.maxConcurrentRequests}):`, originalUrl)
+
+      try {
+        await this.loadProxiedImage(originalUrl)
+      } finally {
+        this.activeRequests--
+        console.log(`图片加载完成，剩余活跃请求: ${this.activeRequests}`)
+        // 处理队列中的下一个请求
+        this.processImageQueue()
+      }
+    },
+
+    async loadProxiedImage(originalUrl) {
+      try {
+        const blob = await getProxiedImage(originalUrl)
+        const proxyUrl = URL.createObjectURL(blob)
+        
+        // 缓存代理URL
+        this.imageProxyCache.set(originalUrl, proxyUrl)
+        this.imageLoadingStatus.set(originalUrl, 'loaded')
+        
+        // 强制重新渲染使用代理URL的组件
+        this.$forceUpdate()
+        
+        console.log('图片代理缓存成功:', originalUrl, '->', proxyUrl)
+      } catch (error) {
+        console.error('图片代理加载失败:', originalUrl, error)
+        this.imageLoadingStatus.set(originalUrl, 'error')
+        // 失败时使用错误占位符  
+        const errorPlaceholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1IiBzdHJva2U9IiNkZGQiIHN0cm9rZS13aWR0aD0iMSIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIwLjNlbSI+5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4='
+        this.imageProxyCache.set(originalUrl, errorPlaceholder)
+        this.$forceUpdate()
+      }
+    },
+    
+    async copyPrompt() {
+      if (!this.selectedImage?.prompt) return
+      
+      try {
+        await navigator.clipboard.writeText(this.selectedImage.prompt)
+        this.isCopied = true
+        this.copyButtonTitle = '拷贝成功！'
+        
+        // 2秒后重置状态
+        setTimeout(() => {
+          this.isCopied = false
+          this.copyButtonTitle = '拷贝提示词'
+        }, 2000)
+      } catch (error) {
+        console.error('拷贝失败:', error)
+        // 降级方案：使用传统方法
+        this.fallbackCopy(this.selectedImage.prompt)
+      }
+    },
+    
+    fallbackCopy(text) {
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      try {
+        document.execCommand('copy')
+        this.isCopied = true
+        this.copyButtonTitle = '拷贝成功！'
+        
+        setTimeout(() => {
+          this.isCopied = false
+          this.copyButtonTitle = '拷贝提示词'
+        }, 2000)
+      } catch (error) {
+        console.error('降级拷贝也失败:', error)
+        this.copyButtonTitle = '拷贝失败'
+        setTimeout(() => {
+          this.copyButtonTitle = '拷贝提示词'
+        }, 2000)
+      } finally {
+        document.body.removeChild(textArea)
+      }
     },
     
   }
@@ -877,6 +967,11 @@ export default {
   margin-right: 0;
 }
 
+.prompt-content-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .prompt-content,
 .size-content {
   background: #f8f9fa;
@@ -890,6 +985,10 @@ export default {
 }
 
 .prompt-content {
+  padding-right: 60px; /* 为拷贝按钮和滚动条留出更多空间 */
+}
+
+.prompt-content {
   border-left: 4px solid #667eea;
   word-wrap: break-word;
   word-break: break-word;
@@ -897,6 +996,70 @@ export default {
   max-height: 300px;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* 拷贝按钮样式 */
+.copy-button {
+  position: absolute;
+  top: 8px;
+  right: 20px; /* 向左移动，避免与滚动条重叠 */
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
+  z-index: 1;
+}
+
+.copy-button:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.copy-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.copy-button.copied {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.copy-button.copied:hover {
+  background: rgba(76, 175, 80, 0.15);
+}
+
+.copy-icon, .copied-icon {
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.copied-icon {
+  animation: copySuccess 0.3s ease;
+}
+
+@keyframes copySuccess {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .size-content {

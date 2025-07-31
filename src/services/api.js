@@ -75,6 +75,30 @@ export const searchImages = async (params) => {
   }
 }
 
+export const getProxiedImage = async (imageUrl) => {
+  try {
+    console.log('API: 获取代理图片:', imageUrl)
+    
+    const response = await apiClient.post('/get_image', {
+      image_url: imageUrl
+    }, {
+      responseType: 'blob',
+      timeout: 30000
+    })
+    
+    console.log('API: 代理图片获取成功:', {
+      status: response.status,
+      size: response.data.size,
+      type: response.data.type
+    })
+    
+    return response.data
+  } catch (error) {
+    console.error('API: 代理图片获取失败:', error)
+    throw error
+  }
+}
+
 export const animateImage = async (formData) => {
   try {
     console.log('API: 开始发送动漫化请求...')
