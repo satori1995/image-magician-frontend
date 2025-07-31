@@ -138,9 +138,14 @@
                 <div 
                   v-if="showDownloadButton && imageLoaded" 
                   class="download-btn"
+                  :class="{ 'downloading': isDownloading }"
                   @click="downloadImage(selectedImage)"
                 >
-                  <span class="download-icon">⬇</span>
+                  <div v-if="isDownloading" class="download-loading">
+                    <div class="loading-spinner"></div>
+                    <span class="download-progress">{{ Math.round(downloadProgress) }}%</span>
+                  </div>
+                  <span v-else class="download-icon">⬇</span>
                 </div>
               </div>
             </div>
@@ -168,7 +173,9 @@ export default {
       lastSearchPrompt: '',
       scrollContainer: null,
       showDownloadButton: false,
-      imageLoaded: false
+      imageLoaded: false,
+      isDownloading: false,
+      downloadProgress: 0
     }
   },
   async mounted() {
@@ -266,45 +273,119 @@ export default {
       this.selectedImage = null
       this.showDownloadButton = false
       this.imageLoaded = false
+      this.isDownloading = false
+      this.downloadProgress = 0
     },
     
-    downloadImage(image) {
+    async downloadImage(image) {
+      if (this.isDownloading) return // 防止重复点击
+      
       try {
-        // 直接使用已经加载的图片元素
-        const imgElement = this.$refs.modalImage
-        if (imgElement && imgElement.complete) {
-          // 创建 canvas 来获取图片数据
-          const canvas = document.createElement('canvas')
-          const ctx = canvas.getContext('2d')
-          
-          canvas.width = imgElement.naturalWidth
-          canvas.height = imgElement.naturalHeight
-          
-          // 将图片绘制到 canvas
-          ctx.drawImage(imgElement, 0, 0)
-          
-          // 转换为 blob 并下载
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = window.URL.createObjectURL(blob)
-              const link = document.createElement('a')
-              link.href = url
-              link.download = `wallpaper_${image.image_id}.jpg`
-              link.style.display = 'none'
-              document.body.appendChild(link)
-              link.click()
-              
-              // 清理
-              document.body.removeChild(link)
-              window.URL.revokeObjectURL(url)
-              console.log('图片下载成功')
-            }
-          }, 'image/jpeg', 0.95)
-        } else {
-          console.error('图片未完全加载，无法下载')
+        this.isDownloading = true
+        this.downloadProgress = 0
+        console.log('开始下载图片:', image.hd_url)
+        
+        // 使用 fetch 获取图片数据，并追踪下载进度
+        const response = await fetch(image.hd_url)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
+        
+        // 获取文件总大小
+        const contentLength = response.headers.get('content-length')
+        const total = contentLength ? parseInt(contentLength, 10) : 0
+        console.log('文件大小:', total, 'bytes')
+        
+        // 使用 ReadableStream 来追踪下载进度
+        const reader = response.body.getReader()
+        const chunks = []
+        let receivedLength = 0
+        
+        // 逐块读取数据并更新进度
+        while (true) {
+          const { done, value } = await reader.read()
+          
+          if (done) break
+          
+          chunks.push(value)
+          receivedLength += value.length
+          
+          // 更新真实下载进度
+          if (total > 0) {
+            this.downloadProgress = (receivedLength / total) * 100
+          } else {
+            // 如果无法获取总大小，根据已接收数据估算进度
+            // 假设大部分图片在 1-5MB 之间
+            const estimatedTotal = Math.max(receivedLength * 2, 2 * 1024 * 1024) // 至少假设2MB
+            this.downloadProgress = Math.min(95, (receivedLength / estimatedTotal) * 100)
+          }
+          
+          console.log(`下载进度: ${this.downloadProgress.toFixed(1)}% (${receivedLength}/${total || '未知'} bytes)`)
+        }
+        
+        // 确保进度显示完成
+        this.downloadProgress = 100
+        console.log('图片数据下载完成，总大小:', receivedLength, 'bytes')
+        
+        // 创建 blob - 根据文件头判断图片类型
+        let mimeType = 'image/jpeg' // 默认
+        if (chunks.length > 0 && chunks[0].length > 4) {
+          const firstBytes = chunks[0]
+          // 检查文件头判断图片格式
+          if (firstBytes[0] === 0x89 && firstBytes[1] === 0x50 && firstBytes[2] === 0x4E && firstBytes[3] === 0x47) {
+            mimeType = 'image/png'
+          } else if (firstBytes[0] === 0xFF && firstBytes[1] === 0xD8) {
+            mimeType = 'image/jpeg'
+          } else if (firstBytes[0] === 0x47 && firstBytes[1] === 0x49 && firstBytes[2] === 0x46) {
+            mimeType = 'image/gif'
+          }
+        }
+        
+        const blob = new Blob(chunks, { type: mimeType })
+        console.log('Blob 创建成功，大小:', blob.size, 'bytes, 类型:', mimeType)
+        
+        // 创建下载链接
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        
+        // 根据文件类型设置文件扩展名
+        const extension = mimeType === 'image/png' ? 'png' : 
+                         mimeType === 'image/gif' ? 'gif' : 'jpg'
+        link.download = `wallpaper_${image.image_id}.${extension}`
+        
+        // 设置链接样式并添加到DOM
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        
+        // 触发下载
+        link.click()
+        console.log('下载已触发，文件名:', link.download)
+        
+        // 立即清理DOM中的链接
+        document.body.removeChild(link)
+        
+        // 延迟释放 URL 以确保下载完成
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+          console.log('URL已释放')
+        }, 10000) // 延长到10秒确保下载完成
+        
+        // 短暂显示完成状态后重置
+        setTimeout(() => {
+          this.isDownloading = false
+          this.downloadProgress = 0
+          console.log('下载状态已重置')
+        }, 1500)
+        
       } catch (error) {
         console.error('下载失败:', error)
+        this.isDownloading = false
+        this.downloadProgress = 0
+        
+        // 显示错误信息给用户
+        alert(`下载失败: ${error.message}\n\n请检查网络连接或尝试右键点击图片另存为。`)
       }
     },
     
@@ -851,6 +932,14 @@ export default {
   overflow: hidden;
 }
 
+.download-btn.downloading {
+  width: 60px;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.8);
+  cursor: default;
+  border-color: rgba(76, 175, 80, 0.4);
+}
+
 .download-btn::before {
   content: '';
   position: absolute;
@@ -886,6 +975,38 @@ export default {
   font-weight: bold;
   z-index: 1;
   position: relative;
+}
+
+.download-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  position: relative;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #4CAF50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 2px;
+}
+
+.download-progress {
+  font-size: 10px;
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @keyframes pulse {

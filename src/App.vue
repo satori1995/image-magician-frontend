@@ -2,9 +2,10 @@
   <div id="app" contenteditable="false">
     <Navbar @tab-change="handleTabChange" />
     <div class="app-body">
-      <Sidebar @function-change="handleFunctionChange" />
+      <Sidebar :current-function="currentFunction" @function-change="handleFunctionChange" />
       <main class="main-content">
         <WallpaperSearch v-if="currentFunction === 'wallpaper-search'" />
+        <AnimeImage v-else-if="currentFunction === 'anime-image'" />
         <div v-else class="content-area">
           <!-- Other functions will be implemented here -->
         </div>
@@ -17,13 +18,15 @@
 import Navbar from './components/Navbar.vue'
 import Sidebar from './components/Sidebar.vue'
 import WallpaperSearch from './components/WallpaperSearch.vue'
+import AnimeImage from './components/AnimeImage.vue'
 
 export default {
   name: 'App',
   components: {
     Navbar,
     Sidebar,
-    WallpaperSearch
+    WallpaperSearch,
+    AnimeImage
   },
   data() {
     return {

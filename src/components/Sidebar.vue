@@ -8,11 +8,20 @@
     <div class="sidebar-content">
       <div class="function-list">
         <button 
-          class="function-item active"
+          class="function-item"
+          :class="{ active: currentFunction === 'wallpaper-search' }"
           @click="selectFunction('wallpaper-search')"
         >
           <span class="function-icon">🖼️</span>
           <span class="function-name fancy-text">壁纸搜索</span>
+        </button>
+        <button 
+          class="function-item"
+          :class="{ active: currentFunction === 'anime-image' }"
+          @click="selectFunction('anime-image')"
+        >
+          <span class="function-icon">✨</span>
+          <span class="function-name fancy-text">图像动漫化</span>
         </button>
       </div>
     </div>
@@ -22,6 +31,12 @@
 <script>
 export default {
   name: 'Sidebar',
+  props: {
+    currentFunction: {
+      type: String,
+      default: 'wallpaper-search'
+    }
+  },
   methods: {
     selectFunction(functionName) {
       this.$emit('function-change', functionName)
