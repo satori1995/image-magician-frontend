@@ -2,10 +2,13 @@
   <div id="app" contenteditable="false">
     <Navbar @tab-change="handleTabChange" />
     <div class="app-body">
-      <Sidebar :current-function="currentFunction" @function-change="handleFunctionChange" />
+      <Sidebar :current-function="currentFunction" :current-tab="currentTab" @function-change="handleFunctionChange" />
       <main class="main-content">
+        <!-- 图片功能 -->
         <WallpaperSearch v-if="currentFunction === 'wallpaper-search'" />
         <AnimeImage v-else-if="currentFunction === 'anime-image'" />
+        <!-- 音乐功能 -->
+        <TextToSpeech v-else-if="currentFunction === 'text-to-speech'" />
         <div v-else class="content-area">
           <!-- Other functions will be implemented here -->
         </div>
@@ -19,6 +22,7 @@ import Navbar from './components/Navbar.vue'
 import Sidebar from './components/Sidebar.vue'
 import WallpaperSearch from './components/WallpaperSearch.vue'
 import AnimeImage from './components/AnimeImage.vue'
+import TextToSpeech from './components/TextToSpeech.vue'
 
 export default {
   name: 'App',
@@ -26,7 +30,8 @@ export default {
     Navbar,
     Sidebar,
     WallpaperSearch,
-    AnimeImage
+    AnimeImage,
+    TextToSpeech
   },
   data() {
     return {
@@ -37,6 +42,12 @@ export default {
   methods: {
     handleTabChange(tab) {
       this.currentTab = tab
+      // 切换标签页时，重置为对应的默认功能
+      if (tab === 'image') {
+        this.currentFunction = 'wallpaper-search'
+      } else if (tab === 'audio') {
+        this.currentFunction = 'text-to-speech'
+      }
     },
     handleFunctionChange(functionName) {
       this.currentFunction = functionName

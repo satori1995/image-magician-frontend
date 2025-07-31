@@ -7,22 +7,37 @@
     
     <div class="sidebar-content">
       <div class="function-list">
-        <button 
-          class="function-item"
-          :class="{ active: currentFunction === 'wallpaper-search' }"
-          @click="selectFunction('wallpaper-search')"
-        >
-          <span class="function-icon">🖼️</span>
-          <span class="function-name fancy-text">壁纸搜索</span>
-        </button>
-        <button 
-          class="function-item"
-          :class="{ active: currentFunction === 'anime-image' }"
-          @click="selectFunction('anime-image')"
-        >
-          <span class="function-icon">✨</span>
-          <span class="function-name fancy-text">图像动漫化（待完善）</span>
-        </button>
+        <!-- 图片功能 -->
+        <template v-if="currentTab === 'image'">
+          <button 
+            class="function-item"
+            :class="{ active: currentFunction === 'wallpaper-search' }"
+            @click="selectFunction('wallpaper-search')"
+          >
+            <span class="function-icon">🖼️</span>
+            <span class="function-name fancy-text">壁纸搜索</span>
+          </button>
+          <button 
+            class="function-item"
+            :class="{ active: currentFunction === 'anime-image' }"
+            @click="selectFunction('anime-image')"
+          >
+            <span class="function-icon">✨</span>
+            <span class="function-name fancy-text">图像动漫化</span>
+          </button>
+        </template>
+        
+        <!-- 音频功能 -->
+        <template v-if="currentTab === 'audio'">
+          <button 
+            class="function-item"
+            :class="{ active: currentFunction === 'text-to-speech' }"
+            @click="selectFunction('text-to-speech')"
+          >
+            <span class="function-icon">🎤</span>
+            <span class="function-name fancy-text">文本转语音</span>
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -35,6 +50,10 @@ export default {
     currentFunction: {
       type: String,
       default: 'wallpaper-search'
+    },
+    currentTab: {
+      type: String,
+      default: 'image'
     }
   },
   methods: {
