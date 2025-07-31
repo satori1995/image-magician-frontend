@@ -21,7 +21,7 @@
           @click="selectFunction('anime-image')"
         >
           <span class="function-icon">✨</span>
-          <span class="function-name fancy-text">图像动漫化</span>
+          <span class="function-name fancy-text">图像动漫化（待完善）</span>
         </button>
       </div>
     </div>
