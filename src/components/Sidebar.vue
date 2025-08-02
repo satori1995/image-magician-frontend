@@ -49,11 +49,11 @@ export default {
   props: {
     currentFunction: {
       type: String,
-      default: 'wallpaper-search'
+      default: 'text-to-speech'
     },
     currentTab: {
       type: String,
-      default: 'image'
+      default: 'audio'
     }
   },
   methods: {

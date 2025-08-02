@@ -244,4 +244,67 @@ const simulateAnimeProcessing = async (formData) => {
   })
 }
 
+// 获取语音模型列表
+export const getVoiceModels = async () => {
+  try {
+    console.log('API: 获取语音模型列表...')
+    const response = await apiClient.get('/get_voice_models')
+    console.log('API: 语音模型获取成功:', response.data)
+    
+    // 如果返回数据正常，直接返回
+    if (response.data && response.data.data) {
+      // 检查是否已经有正确的字段名，如果没有则进行映射
+      const data = response.data.data
+      if (!data.builtin_voice_models && data.build_voice_models) {
+        // 需要映射 build_voice_models -> builtin_voice_models
+        const correctedData = {
+          ...response.data,
+          data: {
+            builtin_voice_models: data.build_voice_models || [],
+            custom_voice_models: data.custom_voice_models || []
+          }
+        }
+        console.log('API: 映射后的数据:', correctedData)
+        return correctedData
+      }
+    }
+    
+    console.log('API: 直接返回原始数据:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('API: 获取语音模型失败:', error)
+    throw error
+  }
+}
+
+// 文本转语音
+export const textToVoice = async (params) => {
+  try {
+    console.log('API: 发送文本转语音请求...', params)
+    const response = await apiClient.post('/text_to_speech', params)
+    console.log('API: 文本转语音响应:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('API: 文本转语音失败:', error)
+    throw error
+  }
+}
+
+// 音频预览
+export const audioPreview = async (voiceId) => {
+  try {
+    console.log('API: 发送音频预览请求...', voiceId)
+    const response = await apiClient.get('/audio_preview', {
+      params: {
+        voice_id: voiceId
+      }
+    })
+    console.log('API: 音频预览响应:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('API: 音频预览失败:', error)
+    throw error
+  }
+}
+
 export default apiClient

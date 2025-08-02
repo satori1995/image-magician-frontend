@@ -4,18 +4,18 @@
       <div class="navbar-menu">
         <button 
           class="navbar-item fancy-text"
-          :class="{ active: activeTab === 'image' }"
-          @click="setActiveTab('image')"
-        >
-          <span class="text-content">✨ 图像 ✨</span>
-          <div class="button-glow"></div>
-        </button>
-        <button 
-          class="navbar-item fancy-text"
           :class="{ active: activeTab === 'audio' }"
           @click="setActiveTab('audio')"
         >
           <span class="text-content">🎵 音频 🎵</span>
+          <div class="button-glow"></div>
+        </button>
+        <button 
+          class="navbar-item fancy-text"
+          :class="{ active: activeTab === 'image' }"
+          @click="setActiveTab('image')"
+        >
+          <span class="text-content">✨ 图像 ✨</span>
           <div class="button-glow"></div>
         </button>
       </div>
@@ -28,7 +28,7 @@ export default {
   name: 'Navbar',
   data() {
     return {
-      activeTab: 'image'
+      activeTab: 'audio'
     }
   },
   methods: {
